@@ -1,0 +1,5 @@
+<Solution>
+  <Project Path="Bot0/Bot0.csproj" />
+  <Project Path="Bot1/Bot1.csproj" />
+  <Project Path="Engine/Engine.csproj" />
+</Solution>
