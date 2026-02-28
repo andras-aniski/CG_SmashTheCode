@@ -165,13 +165,14 @@ static class Phys
             var groups = ColorGroups(g);
             if (groups.Count == 0) break;
 
-            // Capture B and colors before clearing (grid still intact).
+            // Capture B, colors, and per-group sizes before clearing (grid still intact).
             int B = 0;
             var colors = new HashSet<int>();
-            foreach (var gr in groups)
-                foreach (var (r, c) in gr) { colors.Add(g[r, c]); B++; }
+            var groupSizes = new int[groups.Count];
+            for (int gi = 0; gi < groups.Count; gi++)
+                foreach (var (r, c) in groups[gi]) { colors.Add(g[r, c]); B++; groupSizes[gi]++; }
 
-            ts += TurnScore(B, colors.Count, groups.Count, chain);
+            ts += TurnScore(B, colors.Count, groupSizes, chain);
 
             var rm = new HashSet<(int, int)>();
             foreach (var gr in groups) foreach (var cell in gr) rm.Add(cell);
@@ -213,13 +214,15 @@ static class Phys
     }
 
     // Score formula: (10 * B) * clamp(CP + CB + GB, 1, 999)
-    static int TurnScore(int B, int nColors, int nGroups, int chain)
+    // GB is summed per group: 0 for 4, 1 for 5, ..., 6 for 10, 8 for 11+
+    static int TurnScore(int B, int nColors, int[] groupSizes, int chain)
     {
         int CP = 0;
         if (chain >= 1) { CP = 8; for (int i = 1; i < chain; i++) CP *= 2; }
         int CB = nColors <= 1 ? 0 : (int)Math.Pow(2, nColors - 1); // 0/2/4/8/16
-        int GB = Math.Max(0, B - 4);
-        if (nGroups > 1) GB -= nGroups * K.CHAIN_MIN;
+        int GB = 0;
+        foreach (int sz in groupSizes)
+            GB += sz <= 4 ? 0 : sz <= 10 ? sz - 4 : 8;
         return 10 * B * Math.Max(1, Math.Min(999, CP + CB + GB));
     }
 

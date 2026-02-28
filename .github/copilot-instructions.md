@@ -16,7 +16,10 @@ CodinGame bot for [Smash The Code](https://www.codingame.com/multiplayer/bot-pro
 ## Build & Run
 
 ```sh
-Copilot, populate it with instructions on how to build and run the project, including any dependencies or setup steps required.
+dotnet build                     # build entire solution
+dotnet build Bot0/Bot0.csproj    # build only Bot0
+dotnet run --project Bot0        # run Bot0 (logs to stderr every turn)
+dotnet build Bot0 -c Release     # release build for CodinGame submission
 ```
 
 There are no automated tests.
@@ -29,9 +32,19 @@ Three projects, each compiles to a single executable:
 - **Bot1** — minimal starter bot (CodinGame scaffold)
 - **Engine** — placeholder, not yet implemented
 
-### CodinGame constraint
+### Bot0 class structure (all in `Program.cs`)
 
-CodinGame only accepts a **single `.cs` file** per submission. All bot logic for Bot0 lives entirely in `Bot0/Program.cs` with no namespaces and no dependencies.
+| Class | Role |
+|-------|------|
+| `Player` | Entry point; reads stdin each turn, writes move to stdout, calls `Game.BestMove` |
+| `Log` | Always-on stderr logger (no `#if DEBUG` guard); writes turn/pairs/grids/move |
+| `GH` | Grid helpers: parse, gravity, landing row, space count, neighbor iteration |
+| `Phys` | Game physics: block placement, chain resolution, scoring, near-chain counting |
+| `Node` | Mutable search-tree node; cloned at each beam-search step (`new Node(src)`) |
+| `OppSim` | Beam search over **opponent** moves; writes best OppFit back to the root node |
+| `Eval` | Fitness function for player nodes |
+| `Game` | Player beam search; uses `OppSim` result as a fixed opponent-threat offset |
+| `K` | All tuning constants |
 
 ### Game constants
 
@@ -45,21 +58,26 @@ Score formula: (10 × B) × (CP + CB + GB)  — chain power × color bonus × gr
 Nuisance:      score / 70 → skull lines sent (NUISANCE_DIVISOR = 70, SKULL_AMOUNT = 6)
 ```
 
-### Rotation encoding
+### Rotation encoding (from official rules)
 
-| Rotation | Block A | Block B |
-|----------|---------|---------|
-| 0 | col `c` | col `c+1` (A left of B) |
-| 1 | col `c` | col `c` (A on top) |
-| 2 | col `c` | col `c-1` (A right of B) |
-| 3 | col `c` | col `c` (B on top, swapped) |
+| Rotation | Block A (pair[0]) | Block B (pair[1]) |
+|----------|-------------------|-------------------|
+| 0 | col `c` (left) | col `c+1` (right) |
+| 1 | col `c` (bottom) | col `c` (top) |
+| 2 | col `c` (right) | col `c-1` (left) |
+| 3 | col `c` (top) | col `c` (bottom) |
 
-Rotations 0 and 2 are skipped at the boundary columns. Rotations 2 and 3 are skipped when both blocks in a pair have the same color.
+Rotations 0 and 2 are skipped at boundary columns. Rotations 2 and 3 are skipped when both blocks in a pair have the same color (symmetric).
 
 ### Timeout handling
 
-- Player search: 94 ms
-- Timeout checks should be done effectively as if a bot times out, that loses immediately.
+- Response time per turn ≤ 100ms (CodinGame hard limit).
+- Bot0 budgets: 90ms for the player beam search, 22ms for the opponent simulation (`OppSim` runs first).
+- `Game.SW` (static `Stopwatch`) is restarted each turn. Timeout checks inside the generation loop cut it early and return the best candidate found so far.
+
+### CodinGame submission constraint
+
+CodinGame only accepts a **single `.cs` file** per submission. All bot logic for Bot0 lives entirely in `Bot0/Program.cs` with no namespaces and no dependencies.
 
 ## Codingame Description
 
